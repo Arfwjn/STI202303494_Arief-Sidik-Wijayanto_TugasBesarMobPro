@@ -32,7 +32,7 @@ class AppTheme {
   static const Color shadowLight = Color(0x0F000000);
   static const Color shadowDark = Color(0x0F000000);
 
-  /// Light theme (optimized for OLED displays)
+  /// Light theme
   static ThemeData lightTheme = ThemeData(
     brightness: Brightness.dark,
     useMaterial3: true,

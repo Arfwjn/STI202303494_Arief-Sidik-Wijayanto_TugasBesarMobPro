@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 /// Custom bottom navigation bar for Travvel app
-/// Implements bottom-heavy design strategy with three primary navigation items
 class CustomBottomBar extends StatefulWidget {
   /// Current selected index
   final int currentIndex;
@@ -199,8 +198,6 @@ class _CustomBottomBarState extends State<CustomBottomBar>
 
 /// Extension to provide navigation functionality
 extension CustomBottomBarNavigation on CustomBottomBar {
-  /// Navigate to the appropriate screen based on index
-  /// FIXED: Gunakan pushNamed alih-alih pushReplacementNamed untuk menjaga navigation stack
   static void navigateToIndex(BuildContext context, int index) {
     // Check if already on the target screen
     final currentRoute = ModalRoute.of(context)?.settings.name;

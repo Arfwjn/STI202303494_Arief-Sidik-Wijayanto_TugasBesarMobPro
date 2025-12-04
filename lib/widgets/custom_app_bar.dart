@@ -20,7 +20,6 @@ enum CustomAppBarVariant {
 }
 
 /// Custom app bar for Travvel app
-/// Implements sophisticated cyber minimalism with electric accents
 class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   /// Title text to display
   final String? title;

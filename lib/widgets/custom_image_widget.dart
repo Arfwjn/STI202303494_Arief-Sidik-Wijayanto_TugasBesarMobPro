@@ -20,7 +20,6 @@ extension ImageTypeExtension on String {
 
 enum ImageType { svg, png, network, file, unknown }
 
-// ignore_for_file: must_be_immutable
 class CustomImageWidget extends StatelessWidget {
   CustomImageWidget({
     this.imageUrl,

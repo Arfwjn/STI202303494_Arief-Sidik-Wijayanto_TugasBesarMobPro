@@ -46,3 +46,6 @@ app.*.map.json
 
 # Local properties, to avoid committing local paths
 /android/local.properties
+
+# notes
+TODO.md
