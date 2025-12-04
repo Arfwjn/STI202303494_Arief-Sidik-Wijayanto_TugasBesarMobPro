@@ -8,7 +8,7 @@ import './widgets/destination_card_widget.dart';
 import './widgets/empty_state_widget.dart';
 import './widgets/search_bar_widget.dart';
 
-/// Home Screen - Primary destination discovery hub
+/// Layar utama untuk penemuan destinasi
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -181,6 +181,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  /// Widget untuk menampilkan pesan tidak ada hasil pencarian
   Widget _buildNoResultsWidget(ThemeData theme) {
     return Center(
       child: Padding(
@@ -213,6 +214,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  /// Menangani refresh data destinasi
   Future<void> _handleRefresh() async {
     HapticFeedback.mediumImpact();
     setState(() {
@@ -240,6 +242,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  /// Menampilkan opsi filter dalam modal bottom sheet
   void _showFilterOptions() {
     showModalBottomSheet(
       context: context,
@@ -358,8 +361,25 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _navigateToAddDestination() {
-    Navigator.pushNamed(context, '/add-destination-screen');
+  /// Navigasi ke layar tambah destinasi
+  Future<void> _navigateToAddDestination() async {
+    final result =
+        await Navigator.pushNamed(context, '/add-destination-screen');
+
+    if (result == true && mounted) {
+      setState(() {
+        // Refresh atau reload data destinasi di sini
+        // Untuk saat ini, hanya trigger rebuild
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Destination added successfully'),
+          duration: Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   void _navigateToDestinationDetail(Map<String, dynamic> destination) {

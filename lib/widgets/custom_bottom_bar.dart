@@ -200,17 +200,35 @@ class _CustomBottomBarState extends State<CustomBottomBar>
 /// Extension to provide navigation functionality
 extension CustomBottomBarNavigation on CustomBottomBar {
   /// Navigate to the appropriate screen based on index
+  /// FIXED: Gunakan pushNamed alih-alih pushReplacementNamed untuk menjaga navigation stack
   static void navigateToIndex(BuildContext context, int index) {
+    // Check if already on the target screen
+    final currentRoute = ModalRoute.of(context)?.settings.name;
+
+    String targetRoute;
     switch (index) {
       case 0:
-        Navigator.pushReplacementNamed(context, '/home-screen');
+        targetRoute = '/home-screen';
         break;
       case 1:
-        Navigator.pushReplacementNamed(context, '/add-destination-screen');
+        targetRoute = '/add-destination-screen';
         break;
       case 2:
-        Navigator.pushReplacementNamed(context, '/map-view-screen');
+        targetRoute = '/map-view-screen';
         break;
+      default:
+        return;
+    }
+
+    // Only navigate if not already on the target screen
+    if (currentRoute != targetRoute) {
+      // For Add Destination, use regular push to maintain stack
+      if (index == 1) {
+        Navigator.pushNamed(context, targetRoute);
+      } else {
+        // For Home and Map, use pushReplacementNamed to avoid stack buildup
+        Navigator.pushReplacementNamed(context, targetRoute);
+      }
     }
   }
 }

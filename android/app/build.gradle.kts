@@ -5,19 +5,18 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
-// file: android/app/build.gradle
+import java.util.Properties
+import org.gradle.api.GradleException
 
-def localProperties = new Properties()
-def localPropertiesFile = rootProject.file('local.properties')
+val localProperties = Properties()
+val localPropertiesFile = rootProject.file("local.properties")
 if (localPropertiesFile.exists()) {
-    localPropertiesFile.withReader('UTF-8') { reader ->
-        localProperties.load(reader)
-    }
+    localPropertiesFile.inputStream().use { localProperties.load(it) }
 }
 
-def googleMapsApiKey = localProperties.getProperty('googleMapsApiKey')
+val googleMapsApiKey = localProperties.getProperty("googleMapsApiKey")
 if (googleMapsApiKey == null) {
-    throw new GradleException("googleMapsApiKey not found in local.properties")
+    throw GradleException("googleMapsApiKey not found in local.properties")
 }
 
 android {
@@ -43,7 +42,7 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
-        manifestPlaceholders = [googleMapsApiKey: googleMapsApiKey]
+        manifestPlaceholders["googleMapsApiKey"] = googleMapsApiKey
     }
 
     buildTypes {

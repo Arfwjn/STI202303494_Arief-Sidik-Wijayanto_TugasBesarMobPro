@@ -5,17 +5,16 @@ import 'package:sizer/sizer.dart';
 import '../core/app_export.dart';
 import '../widgets/custom_error_widget.dart';
 
+/// Fungsi utama aplikasi untuk inisialisasi
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   bool _hasShownError = false;
 
-  // 🚨 CRITICAL: Custom error handling - DO NOT REMOVE
   ErrorWidget.builder = (FlutterErrorDetails details) {
     if (!_hasShownError) {
       _hasShownError = true;
 
-      // Reset flag after 5 seconds to allow error widget on new screens
       Future.delayed(Duration(seconds: 5), () {
         _hasShownError = false;
       });
@@ -27,7 +26,6 @@ void main() async {
     return SizedBox.shrink();
   };
 
-  // 🚨 CRITICAL: Device orientation lock - DO NOT REMOVE
   Future.wait([
     SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp])
   ]).then((value) {
@@ -35,6 +33,7 @@ void main() async {
   });
 }
 
+/// Widget utama aplikasi Flutter
 class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -44,7 +43,6 @@ class MyApp extends StatelessWidget {
         theme: AppTheme.lightTheme,
         darkTheme: AppTheme.darkTheme,
         themeMode: ThemeMode.light,
-        // 🚨 CRITICAL: NEVER REMOVE OR MODIFY
         builder: (context, child) {
           return MediaQuery(
             data: MediaQuery.of(context).copyWith(
@@ -53,7 +51,6 @@ class MyApp extends StatelessWidget {
             child: child!,
           );
         },
-        // 🚨 END CRITICAL SECTION
         debugShowCheckedModeBanner: false,
         routes: AppRoutes.routes,
         initialRoute: AppRoutes.initial,
