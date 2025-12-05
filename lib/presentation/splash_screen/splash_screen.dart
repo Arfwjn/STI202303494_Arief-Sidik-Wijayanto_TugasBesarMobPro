@@ -4,8 +4,7 @@ import 'package:flutter/services.dart';
 import '../../core/app_export.dart';
 import '../../widgets/custom_icon_widget.dart';
 
-/// Splash Screen for Travvel application
-/// Provides branded launch experience while initializing core services
+/// Splash Screen untuk aplikasi Travvel
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 

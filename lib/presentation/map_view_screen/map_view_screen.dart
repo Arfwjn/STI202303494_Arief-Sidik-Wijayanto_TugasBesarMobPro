@@ -34,19 +34,20 @@ class _MapViewScreenState extends State<MapViewScreen> {
   LatLng? _selectedLocation;
   bool _mapLoaded = false;
 
-  // Mock destinations data with coordinates
+  // Mock destinations data menggunakan coordinates
   final List<Map<String, dynamic>> _destinations = [
     {
       "id": 1,
-      "name": "Golden Gate Bridge",
-      "description": "Iconic suspension bridge spanning the Golden Gate strait",
-      "latitude": 37.8199,
-      "longitude": -122.4783,
+      "name": "Curug Jenggala",
+      "description":
+          "Curug Jenggala adalah air terjun yang berlokasi di Ketenger, Baturaden, Banyumas. Air terjun ini memiliki ketinggian 30 meter dari permukaan tanah.",
+      "latitude": -7.308877709465497,
+      "longitude": 109.20872405118497,
       "image": "https://images.unsplash.com/photo-1622874755957-c86bf0a9178a",
       "semanticLabel":
           "Aerial view of the Golden Gate Bridge spanning across blue water with San Francisco cityscape in background",
       "openingHours": "Open 24 hours",
-      "rating": 4.8,
+      "rating": 4.7,
     },
     {
       "id": 2,
@@ -318,12 +319,11 @@ class _MapViewScreenState extends State<MapViewScreen> {
       _currentPosition = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.high,
+          distanceFilter: 10,
           timeLimit: Duration(seconds: 5),
         ),
       );
-    } catch (e) {
-      // Silently fail and use default location
-    }
+    } catch (e) {}
   }
 
   Future<void> _createMarkers() async {
@@ -372,6 +372,7 @@ class _MapViewScreenState extends State<MapViewScreen> {
 
   void _onMapCreated(GoogleMapController controller) {
     _mapController = controller;
+    _mapController?.setMapStyle(_darkMapStyle);
     setState(() {
       _mapLoaded = true;
       _isLoading = false;

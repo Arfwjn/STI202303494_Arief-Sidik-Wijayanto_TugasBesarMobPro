@@ -50,7 +50,7 @@ class _EditDestinationScreenState extends State<EditDestinationScreen> {
         widget.destination['longitude']?.toString() ?? '';
     _currentImagePath = widget.destination['photo_path'];
 
-    // Parse jam buka dari format database
+    // Parse opening hours from database format
     final openingHours = widget.destination['opening_hours'] as String?;
     if (openingHours != null && openingHours.isNotEmpty) {
       final parts = openingHours.split(' - ');
@@ -68,7 +68,7 @@ class _EditDestinationScreenState extends State<EditDestinationScreen> {
 
   TimeOfDay? _parseTimeOfDay(String timeString) {
     try {
-      // Parse format "08:00 AM" atau "8:00 PM"
+      // Parse format like "08:00 AM" or "8:00 PM"
       timeString = timeString.trim();
       final parts = timeString.split(' ');
       if (parts.length != 2) return null;
@@ -212,7 +212,10 @@ class _EditDestinationScreenState extends State<EditDestinationScreen> {
       }
 
       final position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          distanceFilter: 10,
+        ),
       );
 
       setState(() {
@@ -251,14 +254,14 @@ class _EditDestinationScreenState extends State<EditDestinationScreen> {
     setState(() => _isUpdating = true);
 
     try {
-      // Format jam buka
+      // Format opening hours
       String? openingHoursFormatted;
       if (_openingTime != null && _closingTime != null) {
         openingHoursFormatted =
             '${_openingTime!.format(context)} - ${_closingTime!.format(context)}';
       }
 
-      // Tentukan path foto
+      // Determine photo path
       String? finalPhotoPath;
       if (_photoRemoved) {
         finalPhotoPath = '';
@@ -287,8 +290,7 @@ class _EditDestinationScreenState extends State<EditDestinationScreen> {
 
       if (mounted) {
         if (result > 0) {
-          Navigator.pop(
-              context, true); // Return true untuk mengindikasi bahwa sukses
+          Navigator.pop(context, true); // Return true to indicate success
 
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(

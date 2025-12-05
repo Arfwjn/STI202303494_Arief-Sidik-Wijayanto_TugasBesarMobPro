@@ -4,8 +4,6 @@ import 'package:flutter_svg/svg.dart';
 import '../core/app_export.dart';
 import '../routes/app_routes.dart';
 
-// custom_error_widget.dart
-
 class CustomErrorWidget extends StatelessWidget {
   final FlutterErrorDetails? errorDetails;
   final String? errorMessage;
@@ -50,7 +48,7 @@ class CustomErrorWidget extends StatelessWidget {
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 16,
-                    color: Color(0xFF525252), // neutral-600
+                    color: Color(0xFF525252),
                   ),
                 ),
               ),

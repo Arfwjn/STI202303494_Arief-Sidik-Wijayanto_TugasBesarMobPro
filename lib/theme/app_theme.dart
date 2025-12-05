@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-/// A class that contains all theme configurations for the Travvel application.
-/// Implements Sophisticated Cyber Minimalism with Deep Space Electric color scheme.
 class AppTheme {
   AppTheme._();
 
@@ -327,7 +325,7 @@ class AppTheme {
     dialogTheme: DialogThemeData(backgroundColor: secondarySurfaceLight),
   );
 
-  /// Dark theme (same as light for OLED optimization)
+  /// Dark theme
   static ThemeData darkTheme = ThemeData(
     brightness: Brightness.dark,
     useMaterial3: true,
@@ -731,12 +729,12 @@ class AppTheme {
     );
   }
 
-  /// Animation durations following design specifications
+  /// Animation durations
   static const Duration shortAnimation = Duration(milliseconds: 200);
   static const Duration mediumAnimation = Duration(milliseconds: 250);
   static const Duration longAnimation = Duration(milliseconds: 300);
 
-  /// Animation curves following design specifications
+  /// Animation curves
   static const Curve defaultCurve = Curves.easeInOut;
   static const Curve transitionCurve = Curves.fastOutSlowIn;
 }

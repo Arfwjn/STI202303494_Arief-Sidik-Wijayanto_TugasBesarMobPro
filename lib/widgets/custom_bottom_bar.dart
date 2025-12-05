@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-/// Custom bottom navigation bar for Travvel app
+/// Custom bottom navigation bar untuk aplikasi Travvel
 class CustomBottomBar extends StatefulWidget {
-  /// Current selected index
   final int currentIndex;
 
-  /// Callback when navigation item is tapped
+  /// Callback
   final ValueChanged<int> onTap;
 
   const CustomBottomBar({
@@ -60,7 +59,6 @@ class _CustomBottomBarState extends State<CustomBottomBar>
 
   void _handleTap(int index) {
     if (index != widget.currentIndex) {
-      // Haptic feedback for navigation
       HapticFeedback.lightImpact();
       widget.onTap(index);
     }
@@ -196,7 +194,7 @@ class _CustomBottomBarState extends State<CustomBottomBar>
   }
 }
 
-/// Extension to provide navigation functionality
+/// Extension untuk navigasi fungsi pada CustomBottomBar
 extension CustomBottomBarNavigation on CustomBottomBar {
   static void navigateToIndex(BuildContext context, int index) {
     // Check if already on the target screen
@@ -217,13 +215,10 @@ extension CustomBottomBarNavigation on CustomBottomBar {
         return;
     }
 
-    // Only navigate if not already on the target screen
     if (currentRoute != targetRoute) {
-      // For Add Destination, use regular push to maintain stack
       if (index == 1) {
         Navigator.pushNamed(context, targetRoute);
       } else {
-        // For Home and Map, use pushReplacementNamed to avoid stack buildup
         Navigator.pushReplacementNamed(context, targetRoute);
       }
     }

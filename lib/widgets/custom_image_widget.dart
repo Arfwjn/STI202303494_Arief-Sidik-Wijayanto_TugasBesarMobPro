@@ -37,7 +37,6 @@ class CustomImageWidget extends StatelessWidget {
     this.semanticLabel,
   });
 
-  ///[imageUrl] is required parameter for showing image
   final String? imageUrl;
 
   final double? height;
@@ -60,11 +59,8 @@ class CustomImageWidget extends StatelessWidget {
 
   final BoxBorder? border;
 
-  /// Optional widget to show when the image fails to load.
-  /// If null, a default asset image is shown.
   final Widget? errorWidget;
 
-  /// Semantic label for the image to improve accessibility
   final String? semanticLabel;
 
   @override
@@ -84,7 +80,6 @@ class CustomImageWidget extends StatelessWidget {
     );
   }
 
-  ///build the image with border radius
   _buildCircleImage() {
     if (radius != null) {
       return ClipRRect(
@@ -96,7 +91,6 @@ class CustomImageWidget extends StatelessWidget {
     }
   }
 
-  ///build the image with border and border radius style
   _buildImageWithBorder() {
     if (border != null) {
       return Container(

@@ -1,8 +1,8 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 
-/// Database Helper for local SQLite operations
-/// Implements complete CRUD operations for travel destinations
+/// Database Helper untuk operasi SQLite lokal
+/// Implementasi CRUD
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._init();
   static Database? _database;

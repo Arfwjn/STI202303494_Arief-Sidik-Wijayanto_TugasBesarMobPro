@@ -7,7 +7,6 @@ import '../presentation/destination_detail_screen/destination_detail_screen.dart
 import '../presentation/edit_destination_screen/edit_destination_screen.dart';
 
 class AppRoutes {
-  // TODO: Add your routes here
   static const String initial = '/';
   static const String splash = '/splash-screen';
   static const String addDestination = '/add-destination-screen';
@@ -27,6 +26,5 @@ class AppRoutes {
           destination: ModalRoute.of(context)?.settings.arguments
               as Map<String, dynamic>,
         ),
-    // TODO: Add your other routes here
   };
 }

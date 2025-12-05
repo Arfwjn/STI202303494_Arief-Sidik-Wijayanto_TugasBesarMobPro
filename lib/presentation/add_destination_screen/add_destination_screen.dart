@@ -133,6 +133,7 @@ class _AddDestinationScreenState extends State<AddDestinationScreen> {
       final position = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.high,
+          distanceFilter: 10,
         ),
       );
 

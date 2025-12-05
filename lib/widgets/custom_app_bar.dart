@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-/// Variants for CustomAppBar
+/// CustomAppBar
 enum CustomAppBarVariant {
   /// Standard app bar with title
   standard,
@@ -15,25 +15,25 @@ enum CustomAppBarVariant {
   /// App bar with actions only
   actionsOnly,
 
-  /// Transparent app bar for overlays
+  /// Transparent app bar for overlay
   transparent,
 }
 
-/// Custom app bar for Travvel app
+/// Custom app bar untuk aplikasi Travvel
 class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
-  /// Title text to display
+  /// Title text
   final String? title;
 
-  /// Leading widget (typically back button or menu)
+  /// Leading widget
   final Widget? leading;
 
-  /// Action widgets displayed on the right
+  /// Action widgets
   final List<Widget>? actions;
 
   /// Variant of the app bar
   final CustomAppBarVariant variant;
 
-  /// Whether to show back button automatically
+  /// Show back button automatically
   final bool automaticallyImplyLeading;
 
   /// Callback for search functionality
@@ -42,10 +42,10 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   /// Initial search query
   final String? searchQuery;
 
-  /// Whether to center the title
+  /// Center the title
   final bool centerTitle;
 
-  /// Custom bottom widget (like TabBar)
+  /// Custom bottom widget
   final PreferredSizeWidget? bottom;
 
   /// Background color override
@@ -234,16 +234,16 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
 
 /// Action button for app bar
 class CustomAppBarAction extends StatelessWidget {
-  /// Icon to display
+  /// Icon display
   final IconData icon;
 
-  /// Callback when tapped
+  /// Callback
   final VoidCallback onPressed;
 
   /// Tooltip text
   final String? tooltip;
 
-  /// Whether to show badge
+  /// Show badge
   final bool showBadge;
 
   /// Badge count
