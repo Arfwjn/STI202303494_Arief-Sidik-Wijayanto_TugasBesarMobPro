@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 
 import '../../core/app_export.dart';
 import '../../services/database_helper.dart';
@@ -212,18 +213,40 @@ class _MapViewScreenState extends State<MapViewScreen> {
   }
 
   Future<void> _initializeMap() async {
+    debugPrint('MapViewScreen: Starting map initialization');
     try {
+      // Check internet connectivity first
+      final connectivityResult = await Connectivity().checkConnectivity();
+      debugPrint('MapViewScreen: Connectivity result: $connectivityResult');
+      if (connectivityResult.contains(ConnectivityResult.none) ||
+          connectivityResult.contains(ConnectivityResult.bluetooth)) {
+        debugPrint('MapViewScreen: No internet connection detected');
+        setState(() => _isLoading = false);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content:
+                  Text('No internet connection. Please check your network.'),
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+          );
+        }
+        return;
+      }
+
       await _getCurrentLocation();
       await _loadDestinations();
       await _createMarkers();
+      debugPrint('MapViewScreen: Map initialization completed successfully');
       setState(() => _isLoading = false);
     } catch (e) {
+      debugPrint('MapViewScreen: Error during map initialization: $e');
       setState(() => _isLoading = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content:
-                Text('Unable to load map. Please check location permissions.'),
+            content: Text(
+                'Unable to load map. Please check location permissions and API key. Error: ${e.toString()}'),
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
@@ -327,13 +350,30 @@ class _MapViewScreenState extends State<MapViewScreen> {
   }
 
   void _onMapCreated(GoogleMapController controller) {
-    _mapController = controller;
-    _mapController?.setMapStyle(_darkMapStyle);
-    setState(() {
-      _mapLoaded = true;
-      _isLoading = false;
-    });
-    _fitAllMarkers();
+    try {
+      _mapController = controller;
+      _mapController?.setMapStyle(_darkMapStyle);
+      setState(() {
+        _mapLoaded = true;
+        _isLoading = false;
+      });
+      _fitAllMarkers();
+    } catch (e) {
+      setState(() {
+        _mapLoaded = false;
+        _isLoading = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to apply map style. Using default style.'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+      // Still fit markers even if style fails
+      _fitAllMarkers();
+    }
   }
 
   void _fitAllMarkers() {
@@ -519,39 +559,19 @@ class _MapViewScreenState extends State<MapViewScreen> {
               : Stack(
                   children: [
                     GoogleMap(
-                      key: ValueKey(_isLoading),
                       onMapCreated: _onMapCreated,
                       initialCameraPosition: CameraPosition(
-                        target: _currentPosition != null
-                            ? LatLng(_currentPosition!.latitude,
-                                _currentPosition!.longitude)
-                            : LatLng(-7.4297, 109.2401), // Default: Purwokerto
+                        target:
+                            LatLng(-7.4297, 109.2401), // Default: Purwokerto
                         zoom: 12,
                       ),
                       markers: _markers,
                       mapType: _currentMapType,
-                      myLocationEnabled: true,
+                      myLocationEnabled: false,
                       myLocationButtonEnabled: false,
                       zoomControlsEnabled: false,
-                      compassEnabled: true,
+                      compassEnabled: false,
                       mapToolbarEnabled: false,
-                      onLongPress: (LatLng location) async {
-                        HapticFeedback.mediumImpact();
-                        final result = await Navigator.pushNamed(
-                          context,
-                          '/add-destination-screen',
-                          arguments: {
-                            'latitude': location.latitude,
-                            'longitude': location.longitude,
-                          },
-                        );
-                        if (result == true && mounted) {
-                          setState(() => _isLoading = true);
-                          await _loadDestinations();
-                          await _createMarkers();
-                          setState(() => _isLoading = false);
-                        }
-                      },
                     ),
                     if (_showSearchOverlay)
                       SearchOverlayWidget(

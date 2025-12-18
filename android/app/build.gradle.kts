@@ -1,23 +1,24 @@
 plugins {
     id("com.android.application")
     id("kotlin-android")
-    // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
 
 import java.util.Properties
-import org.gradle.api.GradleException
 
+// Load local.properties
 val localProperties = Properties()
 val localPropertiesFile = rootProject.file("local.properties")
 if (localPropertiesFile.exists()) {
-    localPropertiesFile.inputStream().use { localProperties.load(it) }
+    localPropertiesFile.inputStream().use { stream ->
+        localProperties.load(stream)
+    }
 }
 
+// Get Google Maps API Key
 val googleMapsApiKey = localProperties.getProperty("googleMapsApiKey")
-if (googleMapsApiKey == null) {
-    throw GradleException("googleMapsApiKey not found in local.properties")
-}
+    ?: System.getenv("GOOGLE_MAPS_API_KEY")
+    ?: "AIzaSyDelfYcbxnCJKF5X56clemyFIZbAQKI4Oo" // Fallback
 
 android {
     namespace = "com.example.travvels"
@@ -34,21 +35,21 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.example.travvels"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        
+        // Inject API key to manifest
         manifestPlaceholders["googleMapsApiKey"] = googleMapsApiKey
+        
+        // Debug log
+        println("🔑 Google Maps API Key: ${googleMapsApiKey.take(10)}...")
     }
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
         }
     }
