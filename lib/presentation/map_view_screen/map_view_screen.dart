@@ -16,7 +16,7 @@ import './widgets/map_controls_widget.dart';
 import './widgets/search_overlay_widget.dart';
 
 /// Map View Screen - Interactive Google Maps with destination markers
-/// Implements dark theme styling with custom markers and clustering
+/// Improved error handling and initialization
 class MapViewScreen extends StatefulWidget {
   const MapViewScreen({super.key});
 
@@ -33,176 +33,20 @@ class _MapViewScreenState extends State<MapViewScreen> {
   bool _showSearchOverlay = false;
   String _searchQuery = '';
   LatLng? _selectedLocation;
-  bool _mapLoaded = false;
+  bool _mapCreated = false;
   List<Map<String, dynamic>> _destinations = [];
+  String _errorMessage = '';
 
-  static const String _darkMapStyle = '''
-[
-  {
-    "elementType": "geometry",
-    "stylers": [
-      {
-        "color": "#242f3e"
-      }
-    ]
-  },
-  {
-    "elementType": "labels.text.fill",
-    "stylers": [
-      {
-        "color": "#746855"
-      }
-    ]
-  },
-  {
-    "elementType": "labels.text.stroke",
-    "stylers": [
-      {
-        "color": "#242f3e"
-      }
-    ]
-  },
-  {
-    "featureType": "administrative.locality",
-    "elementType": "labels.text.fill",
-    "stylers": [
-      {
-        "color": "#d59563"
-      }
-    ]
-  },
-  {
-    "featureType": "poi",
-    "elementType": "labels.text.fill",
-    "stylers": [
-      {
-        "color": "#d59563"
-      }
-    ]
-  },
-  {
-    "featureType": "poi.park",
-    "elementType": "geometry",
-    "stylers": [
-      {
-        "color": "#263c3f"
-      }
-    ]
-  },
-  {
-    "featureType": "poi.park",
-    "elementType": "labels.text.fill",
-    "stylers": [
-      {
-        "color": "#6b9a76"
-      }
-    ]
-  },
-  {
-    "featureType": "road",
-    "elementType": "geometry",
-    "stylers": [
-      {
-        "color": "#38414e"
-      }
-    ]
-  },
-  {
-    "featureType": "road",
-    "elementType": "geometry.stroke",
-    "stylers": [
-      {
-        "color": "#212a37"
-      }
-    ]
-  },
-  {
-    "featureType": "road",
-    "elementType": "labels.text.fill",
-    "stylers": [
-      {
-        "color": "#9ca5b3"
-      }
-    ]
-  },
-  {
-    "featureType": "road.highway",
-    "elementType": "geometry",
-    "stylers": [
-      {
-        "color": "#746855"
-      }
-    ]
-  },
-  {
-    "featureType": "road.highway",
-    "elementType": "geometry.stroke",
-    "stylers": [
-      {
-        "color": "#1f2835"
-      }
-    ]
-  },
-  {
-    "featureType": "road.highway",
-    "elementType": "labels.text.fill",
-    "stylers": [
-      {
-        "color": "#f3d19c"
-      }
-    ]
-  },
-  {
-    "featureType": "transit",
-    "elementType": "geometry",
-    "stylers": [
-      {
-        "color": "#2f3948"
-      }
-    ]
-  },
-  {
-    "featureType": "transit.station",
-    "elementType": "labels.text.fill",
-    "stylers": [
-      {
-        "color": "#d59563"
-      }
-    ]
-  },
-  {
-    "featureType": "water",
-    "elementType": "geometry",
-    "stylers": [
-      {
-        "color": "#17263c"
-      }
-    ]
-  },
-  {
-    "featureType": "water",
-    "elementType": "labels.text.fill",
-    "stylers": [
-      {
-        "color": "#515c6d"
-      }
-    ]
-  },
-  {
-    "featureType": "water",
-    "elementType": "labels.text.stroke",
-    "stylers": [
-      {
-        "color": "#17263c"
-      }
-    ]
-  }
-]
-''';
+  // Default location (Purwokerto, Indonesia)
+  static const LatLng _defaultLocation = LatLng(-7.4297, 109.2401);
+
+  // Completer for map creation
+  final Completer<GoogleMapController> _controller = Completer();
 
   @override
   void initState() {
     super.initState();
+    debugPrint('MapViewScreen: Initializing...');
     _initializeMap();
   }
 
@@ -213,118 +57,161 @@ class _MapViewScreenState extends State<MapViewScreen> {
   }
 
   Future<void> _initializeMap() async {
-    debugPrint('MapViewScreen: Starting map initialization');
+    debugPrint('MapViewScreen: Starting initialization');
+
     try {
-      // Check internet connectivity first
-      final connectivityResult = await Connectivity().checkConnectivity();
-      debugPrint('MapViewScreen: Connectivity result: $connectivityResult');
-      if (connectivityResult.contains(ConnectivityResult.none) ||
-          connectivityResult.contains(ConnectivityResult.bluetooth)) {
-        debugPrint('MapViewScreen: No internet connection detected');
-        setState(() => _isLoading = false);
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content:
-                  Text('No internet connection. Please check your network.'),
-              backgroundColor: Theme.of(context).colorScheme.error,
-            ),
-          );
-        }
+      // Step 1: Check connectivity
+      debugPrint('MapViewScreen: Checking connectivity...');
+      final hasConnection = await _checkConnectivity();
+
+      if (!hasConnection) {
+        _showError(
+            'No internet connection. Please enable WiFi or mobile data.');
         return;
       }
 
-      await _getCurrentLocation();
+      debugPrint('MapViewScreen: Connectivity OK');
+
+      // Step 2: Load destinations from database
+      debugPrint('MapViewScreen: Loading destinations...');
       await _loadDestinations();
+      debugPrint('MapViewScreen: Loaded ${_destinations.length} destinations');
+
+      // Step 3: Get current location (non-blocking)
+      debugPrint('MapViewScreen: Getting location...');
+      _getCurrentLocationAsync();
+
+      // Step 4: Create markers
+      debugPrint('MapViewScreen: Creating markers...');
       await _createMarkers();
-      debugPrint('MapViewScreen: Map initialization completed successfully');
-      setState(() => _isLoading = false);
-    } catch (e) {
-      debugPrint('MapViewScreen: Error during map initialization: $e');
-      setState(() => _isLoading = false);
+
+      // Mark as ready
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-                'Unable to load map. Please check location permissions and API key. Error: ${e.toString()}'),
-            backgroundColor: Theme.of(context).colorScheme.error,
-          ),
-        );
+        setState(() {
+          _isLoading = false;
+        });
+        debugPrint('MapViewScreen: Initialization complete');
       }
+    } catch (e, stackTrace) {
+      debugPrint('MapViewScreen: Initialization error: $e');
+      debugPrint('MapViewScreen: Stack trace: $stackTrace');
+      _showError('Failed to initialize map: ${e.toString()}');
+    }
+  }
+
+  Future<bool> _checkConnectivity() async {
+    try {
+      final connectivityResult = await Connectivity().checkConnectivity();
+      debugPrint('MapViewScreen: Connectivity result: $connectivityResult');
+
+      // Check if connected to WiFi or mobile data
+      return connectivityResult.contains(ConnectivityResult.wifi) ||
+          connectivityResult.contains(ConnectivityResult.mobile) ||
+          connectivityResult.contains(ConnectivityResult.ethernet);
+    } catch (e) {
+      debugPrint('MapViewScreen: Connectivity check error: $e');
+      // Assume connected if check fails
+      return true;
     }
   }
 
   Future<void> _loadDestinations() async {
     try {
       final destinations = await DatabaseHelper.instance.getAllDestinations();
-      setState(() {
-        _destinations = destinations;
-      });
-    } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error loading destinations: ${e.toString()}'),
-            backgroundColor: Theme.of(context).colorScheme.error,
-          ),
-        );
+        setState(() {
+          _destinations = destinations;
+        });
+      }
+    } catch (e) {
+      debugPrint('MapViewScreen: Error loading destinations: $e');
+      // Don't fail the whole map initialization if destinations fail
+      if (mounted) {
+        setState(() {
+          _destinations = [];
+        });
       }
     }
   }
 
-  Future<void> _getCurrentLocation() async {
+  Future<void> _getCurrentLocationAsync() async {
     try {
+      // Check if location services are enabled
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
+        debugPrint('MapViewScreen: Location services disabled');
         return;
       }
 
+      // Check location permission
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) {
+          debugPrint('MapViewScreen: Location permission denied');
           return;
         }
       }
 
       if (permission == LocationPermission.deniedForever) {
+        debugPrint('MapViewScreen: Location permission permanently denied');
         return;
       }
 
+      // Get current position with timeout
       _currentPosition = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.high,
           distanceFilter: 10,
-          timeLimit: Duration(seconds: 5),
+          timeLimit: Duration(seconds: 10),
         ),
+      ).timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          debugPrint('MapViewScreen: Location timeout, using default');
+          throw TimeoutException('Location timeout');
+        },
       );
-    } catch (e) {}
+
+      debugPrint(
+          'MapViewScreen: Got location: ${_currentPosition?.latitude}, ${_currentPosition?.longitude}');
+    } catch (e) {
+      debugPrint('MapViewScreen: Error getting location: $e');
+      // Continue without current location
+    }
   }
 
   Future<void> _createMarkers() async {
     _markers.clear();
 
     for (var destination in _destinations) {
-      final marker = Marker(
-        markerId: MarkerId(destination["id"].toString()),
-        position: LatLng(
-          destination["latitude"] as double,
-          destination["longitude"] as double,
-        ),
-        infoWindow: InfoWindow(
-          title: destination["name"] as String,
-          snippet: destination["description"] as String,
-          onTap: () => _navigateToDetail(destination),
-        ),
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueCyan),
-        onTap: () => _onMarkerTapped(destination),
-      );
-      _markers.add(marker);
+      try {
+        final marker = Marker(
+          markerId: MarkerId(destination["id"].toString()),
+          position: LatLng(
+            destination["latitude"] as double,
+            destination["longitude"] as double,
+          ),
+          infoWindow: InfoWindow(
+            title: destination["name"] as String,
+            snippet: destination["description"] as String,
+            onTap: () => _navigateToDetail(destination),
+          ),
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueCyan),
+          onTap: () => _onMarkerTapped(destination),
+        );
+        _markers.add(marker);
+      } catch (e) {
+        debugPrint(
+            'MapViewScreen: Error creating marker for ${destination["id"]}: $e');
+      }
     }
 
     if (mounted) {
       setState(() {});
     }
+
+    debugPrint('MapViewScreen: Created ${_markers.length} markers');
   }
 
   void _onMarkerTapped(Map<String, dynamic> destination) {
@@ -350,69 +237,76 @@ class _MapViewScreenState extends State<MapViewScreen> {
   }
 
   void _onMapCreated(GoogleMapController controller) {
-    try {
-      _mapController = controller;
-      _mapController?.setMapStyle(_darkMapStyle);
-      setState(() {
-        _mapLoaded = true;
-        _isLoading = false;
-      });
-      _fitAllMarkers();
-    } catch (e) {
-      setState(() {
-        _mapLoaded = false;
-        _isLoading = false;
-      });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to apply map style. Using default style.'),
-            backgroundColor: Theme.of(context).colorScheme.error,
-          ),
-        );
-      }
-      // Still fit markers even if style fails
-      _fitAllMarkers();
+    debugPrint('MapViewScreen: onMapCreated called');
+
+    if (!_controller.isCompleted) {
+      _controller.complete(controller);
     }
+
+    setState(() {
+      _mapController = controller;
+      _mapCreated = true;
+      _errorMessage = '';
+    });
+
+    debugPrint('MapViewScreen: Map created successfully');
+
+    // Fit markers after a short delay to ensure map is ready
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (mounted && _mapCreated) {
+        _fitAllMarkers();
+      }
+    });
   }
 
   void _fitAllMarkers() {
-    if (_markers.isEmpty) {
-      // If no markers, center on current position or default location
-      if (_currentPosition != null) {
-        _mapController?.animateCamera(
-          CameraUpdate.newLatLngZoom(
-            LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
-            12,
-          ),
-        );
-      }
+    if (_mapController == null || !_mapCreated) {
+      debugPrint('MapViewScreen: Cannot fit markers - controller not ready');
       return;
     }
 
-    LatLngBounds bounds;
-    List<LatLng> positions = _markers.map((m) => m.position).toList();
+    try {
+      if (_markers.isEmpty) {
+        // No markers, center on current position or default
+        final targetLocation = _currentPosition != null
+            ? LatLng(_currentPosition!.latitude, _currentPosition!.longitude)
+            : _defaultLocation;
 
-    double minLat = positions.first.latitude;
-    double maxLat = positions.first.latitude;
-    double minLng = positions.first.longitude;
-    double maxLng = positions.first.longitude;
+        debugPrint('MapViewScreen: No markers, centering on $targetLocation');
 
-    for (var pos in positions) {
-      if (pos.latitude < minLat) minLat = pos.latitude;
-      if (pos.latitude > maxLat) maxLat = pos.latitude;
-      if (pos.longitude < minLng) minLng = pos.longitude;
-      if (pos.longitude > maxLng) maxLng = pos.longitude;
+        _mapController?.animateCamera(
+          CameraUpdate.newLatLngZoom(targetLocation, 12),
+        );
+        return;
+      }
+
+      List<LatLng> positions = _markers.map((m) => m.position).toList();
+
+      double minLat = positions.first.latitude;
+      double maxLat = positions.first.latitude;
+      double minLng = positions.first.longitude;
+      double maxLng = positions.first.longitude;
+
+      for (var pos in positions) {
+        if (pos.latitude < minLat) minLat = pos.latitude;
+        if (pos.latitude > maxLat) maxLat = pos.latitude;
+        if (pos.longitude < minLng) minLng = pos.longitude;
+        if (pos.longitude > maxLng) maxLng = pos.longitude;
+      }
+
+      final bounds = LatLngBounds(
+        southwest: LatLng(minLat, minLng),
+        northeast: LatLng(maxLat, maxLng),
+      );
+
+      debugPrint('MapViewScreen: Fitting bounds: $bounds');
+
+      _mapController?.animateCamera(
+        CameraUpdate.newLatLngBounds(bounds, 50),
+      );
+    } catch (e) {
+      debugPrint('MapViewScreen: Error fitting markers: $e');
     }
-
-    bounds = LatLngBounds(
-      southwest: LatLng(minLat, minLng),
-      northeast: LatLng(maxLat, maxLng),
-    );
-
-    _mapController?.animateCamera(
-      CameraUpdate.newLatLngBounds(bounds, 50),
-    );
   }
 
   void _toggleMapType() {
@@ -435,7 +329,11 @@ class _MapViewScreenState extends State<MapViewScreen> {
         ),
       );
     } else {
-      await _getCurrentLocation();
+      // Try to get location again
+      setState(() => _isLoading = true);
+      await _getCurrentLocationAsync();
+      setState(() => _isLoading = false);
+
       if (_currentPosition != null && mounted) {
         _mapController?.animateCamera(
           CameraUpdate.newLatLngZoom(
@@ -447,7 +345,8 @@ class _MapViewScreenState extends State<MapViewScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Unable to get current location'),
+              content: Text(
+                  'Unable to get current location. Please enable location services.'),
               backgroundColor: Theme.of(context).colorScheme.error,
             ),
           );
@@ -488,6 +387,25 @@ class _MapViewScreenState extends State<MapViewScreen> {
     });
   }
 
+  void _showError(String message) {
+    debugPrint('MapViewScreen: Error: $message');
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = message;
+      });
+    }
+  }
+
+  void _retry() {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = '';
+      _mapCreated = false;
+    });
+    _initializeMap();
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -500,7 +418,7 @@ class _MapViewScreenState extends State<MapViewScreen> {
         actions: [
           CustomAppBarAction(
             icon: Icons.search,
-            onPressed: _toggleSearchOverlay,
+            onPressed: _mapCreated ? _toggleSearchOverlay : () {},
             tooltip: 'Search locations',
           ),
           CustomAppBarAction(
@@ -510,99 +428,7 @@ class _MapViewScreenState extends State<MapViewScreen> {
           ),
         ],
       ),
-      body: _isLoading
-          ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircularProgressIndicator(
-                    color: theme.colorScheme.primary,
-                  ),
-                  SizedBox(height: 16),
-                  Text(
-                    'Loading map...',
-                    style: theme.textTheme.bodyMedium,
-                  ),
-                ],
-              ),
-            )
-          : !_mapLoaded
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.error_outline,
-                        size: 64,
-                        color: theme.colorScheme.error,
-                      ),
-                      SizedBox(height: 16),
-                      Text(
-                        'Unable to load map. Please check your internet connection and API key.',
-                        style: theme.textTheme.bodyMedium,
-                        textAlign: TextAlign.center,
-                      ),
-                      SizedBox(height: 16),
-                      ElevatedButton(
-                        onPressed: () {
-                          setState(() {
-                            _isLoading = true;
-                            _mapLoaded = false;
-                          });
-                          _initializeMap();
-                        },
-                        child: Text('Retry'),
-                      ),
-                    ],
-                  ),
-                )
-              : Stack(
-                  children: [
-                    GoogleMap(
-                      onMapCreated: _onMapCreated,
-                      initialCameraPosition: CameraPosition(
-                        target:
-                            LatLng(-7.4297, 109.2401), // Default: Purwokerto
-                        zoom: 12,
-                      ),
-                      markers: _markers,
-                      mapType: _currentMapType,
-                      myLocationEnabled: false,
-                      myLocationButtonEnabled: false,
-                      zoomControlsEnabled: false,
-                      compassEnabled: false,
-                      mapToolbarEnabled: false,
-                    ),
-                    if (_showSearchOverlay)
-                      SearchOverlayWidget(
-                        searchQuery: _searchQuery,
-                        onSearchQueryChanged: _onSearchQueryChanged,
-                        onDestinationSelected: _onDestinationSelected,
-                        onClose: _toggleSearchOverlay,
-                      ),
-                    Positioned(
-                      top: 16,
-                      right: 16,
-                      child: MapControlsWidget(
-                        currentMapType: _currentMapType,
-                        onToggleMapType: _toggleMapType,
-                      ),
-                    ),
-                    Positioned(
-                      bottom: 24,
-                      right: 16,
-                      child: FloatingActionButton(
-                        onPressed: _centerOnUserLocation,
-                        tooltip: 'My Location',
-                        child: CustomIconWidget(
-                          iconName: 'my_location',
-                          color: theme.colorScheme.onPrimary,
-                          size: 24,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+      body: _buildBody(theme),
       bottomNavigationBar: CustomBottomBar(
         currentIndex: 2,
         onTap: (index) {
@@ -611,6 +437,138 @@ class _MapViewScreenState extends State<MapViewScreen> {
           }
         },
       ),
+    );
+  }
+
+  Widget _buildBody(ThemeData theme) {
+    if (_isLoading) {
+      return _buildLoadingScreen(theme);
+    }
+
+    if (_errorMessage.isNotEmpty) {
+      return _buildErrorScreen(theme);
+    }
+
+    return _buildMapView(theme);
+  }
+
+  Widget _buildLoadingScreen(ThemeData theme) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircularProgressIndicator(
+            color: theme.colorScheme.primary,
+          ),
+          SizedBox(height: 16),
+          Text(
+            'Loading map...',
+            style: theme.textTheme.bodyMedium,
+          ),
+          SizedBox(height: 8),
+          Text(
+            'Please wait',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorScreen(ThemeData theme) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.error_outline,
+              size: 64,
+              color: theme.colorScheme.error,
+            ),
+            SizedBox(height: 16),
+            Text(
+              'Unable to Load Map',
+              style: theme.textTheme.titleLarge,
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: 8),
+            Text(
+              _errorMessage,
+              style: theme.textTheme.bodyMedium,
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: _retry,
+              icon: Icon(Icons.refresh),
+              label: Text('Retry'),
+            ),
+            SizedBox(height: 16),
+            OutlinedButton.icon(
+              onPressed: () => Navigator.pop(context),
+              icon: Icon(Icons.arrow_back),
+              label: Text('Go Back'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMapView(ThemeData theme) {
+    return Stack(
+      children: [
+        GoogleMap(
+          onMapCreated: _onMapCreated,
+          initialCameraPosition: CameraPosition(
+            target: _currentPosition != null
+                ? LatLng(
+                    _currentPosition!.latitude, _currentPosition!.longitude)
+                : _defaultLocation,
+            zoom: 12,
+          ),
+          markers: _markers,
+          mapType: _currentMapType,
+          myLocationEnabled: true,
+          myLocationButtonEnabled: false,
+          zoomControlsEnabled: false,
+          compassEnabled: true,
+          mapToolbarEnabled: false,
+          minMaxZoomPreference: MinMaxZoomPreference(2, 20),
+        ),
+        if (_showSearchOverlay)
+          SearchOverlayWidget(
+            searchQuery: _searchQuery,
+            onSearchQueryChanged: _onSearchQueryChanged,
+            onDestinationSelected: _onDestinationSelected,
+            onClose: _toggleSearchOverlay,
+          ),
+        Positioned(
+          top: 16,
+          right: 16,
+          child: MapControlsWidget(
+            currentMapType: _currentMapType,
+            onToggleMapType: _toggleMapType,
+          ),
+        ),
+        Positioned(
+          bottom: 24,
+          right: 16,
+          child: FloatingActionButton(
+            onPressed: _centerOnUserLocation,
+            tooltip: 'My Location',
+            child: CustomIconWidget(
+              iconName: 'my_location',
+              color: theme.colorScheme.onPrimary,
+              size: 24,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
