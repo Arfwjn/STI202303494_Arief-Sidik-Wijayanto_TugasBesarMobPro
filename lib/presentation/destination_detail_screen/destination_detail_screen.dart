@@ -298,6 +298,7 @@ class _DestinationDetailScreenState extends State<DestinationDetailScreen> {
             child: DestinationActionsWidget(
               latitude: _destinationData!['latitude'] as double,
               longitude: _destinationData!['longitude'] as double,
+              destinationName: _destinationData!['name'] as String,
               onViewOnMap: _navigateToMap,
             ),
           ),
