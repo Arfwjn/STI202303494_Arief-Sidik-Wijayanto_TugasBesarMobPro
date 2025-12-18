@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:sizer/sizer.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/app_export.dart';
 import '../../../widgets/custom_icon_widget.dart';
 import './route_viewer_widget.dart';
 
-/// Widget yang menampung action buttons untuk map view, route, dan directions
+/// Widget yang menampung action buttons untuk map view dan route
 class DestinationActionsWidget extends StatelessWidget {
   final double latitude;
   final double longitude;
@@ -35,52 +34,6 @@ class DestinationActionsWidget extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  Future<void> _launchDirections(BuildContext context) async {
-    final theme = Theme.of(context);
-
-    try {
-      // Coba Google Maps dulu
-      final googleMapsUrl = Uri.parse(
-          'https://www.google.com/maps/dir/?api=1&destination=$latitude,$longitude');
-
-      if (await canLaunchUrl(googleMapsUrl)) {
-        await launchUrl(
-          googleMapsUrl,
-          mode: LaunchMode.externalApplication,
-        );
-      } else {
-        // Fallback ke Apple Maps di iOS
-        final appleMapsUrl =
-            Uri.parse('https://maps.apple.com/?daddr=$latitude,$longitude');
-
-        if (await canLaunchUrl(appleMapsUrl)) {
-          await launchUrl(
-            appleMapsUrl,
-            mode: LaunchMode.externalApplication,
-          );
-        } else {
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Could not open maps application'),
-                backgroundColor: theme.colorScheme.error,
-              ),
-            );
-          }
-        }
-      }
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error opening maps: ${e.toString()}'),
-            backgroundColor: theme.colorScheme.error,
-          ),
-        );
-      }
-    }
   }
 
   @override
@@ -130,7 +83,7 @@ class DestinationActionsWidget extends StatelessWidget {
 
           SizedBox(height: 2.h),
 
-          // Tombol Show Route (NEW)
+          // Tombol Show Route & Navigate
           SizedBox(
             width: double.infinity,
             height: 6.h,
@@ -153,51 +106,9 @@ class DestinationActionsWidget extends StatelessWidget {
                   ),
                   SizedBox(width: 2.w),
                   Text(
-                    'Show Route & Distance',
+                    'Show Route & Navigate',
                     style: theme.textTheme.titleMedium?.copyWith(
                       color: theme.colorScheme.onSecondary,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          SizedBox(height: 2.h),
-
-          // Tombol Get Directions
-          SizedBox(
-            width: double.infinity,
-            height: 6.h,
-            child: OutlinedButton(
-              onPressed: () {
-                HapticFeedback.lightImpact();
-                _launchDirections(context);
-              },
-              style: OutlinedButton.styleFrom(
-                foregroundColor: theme.colorScheme.primary,
-                side: BorderSide(
-                  color: theme.colorScheme.primary,
-                  width: 1,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CustomIconWidget(
-                    iconName: 'directions',
-                    color: theme.colorScheme.primary,
-                    size: 20,
-                  ),
-                  SizedBox(width: 2.w),
-                  Text(
-                    'Get Directions',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      color: theme.colorScheme.primary,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
