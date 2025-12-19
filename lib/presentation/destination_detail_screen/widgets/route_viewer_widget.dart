@@ -5,7 +5,9 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:flutter/services.dart';
 
-/// Widget untuk menampilkan rute dan jarak ke destinasi
+import '../../../services/directions_service.dart';
+
+/// Widget untuk menampilkan rute REAL dari Google Directions API
 class RouteViewerWidget extends StatefulWidget {
   final double destinationLat;
   final double destinationLng;
@@ -31,6 +33,11 @@ class _RouteViewerWidgetState extends State<RouteViewerWidget> {
   final Set<Polyline> _polylines = {};
   double _distance = 0;
   String _estimatedTime = '';
+  String _distanceText = '';
+  String _durationText = '';
+  bool _usingFallbackRoute = false;
+
+  final DirectionsService _directionsService = DirectionsService();
 
   @override
   void initState() {
@@ -45,6 +52,12 @@ class _RouteViewerWidgetState extends State<RouteViewerWidget> {
   }
 
   Future<void> _initializeRoute() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = '';
+      _usingFallbackRoute = false;
+    });
+
     try {
       // Check location permission
       LocationPermission permission = await Geolocator.checkPermission();
@@ -67,44 +80,84 @@ class _RouteViewerWidgetState extends State<RouteViewerWidget> {
         ),
       );
 
-      // Calculate distance
-      _distance = _calculateDistance(
-        _currentPosition!.latitude,
-        _currentPosition!.longitude,
-        widget.destinationLat,
-        widget.destinationLng,
-      );
-
-      // Calculate estimated time (assuming average speed 40 km/h)
-      final hours = _distance / 40;
-      if (hours < 1) {
-        final minutes = (hours * 60).round();
-        _estimatedTime = '$minutes min';
-      } else {
-        final wholeHours = hours.floor();
-        final minutes = ((hours - wholeHours) * 60).round();
-        _estimatedTime = '${wholeHours}h ${minutes}min';
-      }
-
-      // Create markers
+      // Create markers first
       _createMarkers();
 
-      // Create polyline (straight line for simplicity)
-      _createPolyline();
+      // Try to get directions from Google Directions API
+      debugPrint('🗺️ Fetching route from Google Directions API...');
+      final directionsData = await _directionsService.getDirections(
+        origin: LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
+        destination: LatLng(widget.destinationLat, widget.destinationLng),
+      );
 
-      if (mounted) {
+      if (directionsData != null) {
+        // SUCCESS: Got real route from Google Directions API
+        debugPrint('✅ Successfully got route from Google Directions API');
+        _distance = directionsData['distance'];
+        _distanceText = directionsData['distanceText'];
+        _durationText = directionsData['durationText'];
+        _estimatedTime = _durationText;
+
+        // Create polyline from Google Directions
+        _createRealPolyline(directionsData['polylinePoints']);
+
         setState(() {
+          _usingFallbackRoute = false;
           _isLoading = false;
         });
+      } else {
+        // FALLBACK: Use straight line if API fails
+        debugPrint('⚠️ Google Directions API failed, using fallback route');
+        _useFallbackRoute();
       }
     } catch (e) {
+      debugPrint('❌ Error initializing route: $e');
       if (mounted) {
-        setState(() {
-          _errorMessage = 'Failed to load route: ${e.toString()}';
-          _isLoading = false;
-        });
+        // Use fallback route on error
+        _useFallbackRoute();
       }
     }
+  }
+
+  void _useFallbackRoute() {
+    if (_currentPosition == null) {
+      setState(() {
+        _errorMessage = 'Failed to get current location';
+        _isLoading = false;
+      });
+      return;
+    }
+
+    // Calculate straight-line distance
+    _distance = _calculateDistance(
+      _currentPosition!.latitude,
+      _currentPosition!.longitude,
+      widget.destinationLat,
+      widget.destinationLng,
+    );
+
+    _distanceText = '${_distance.toStringAsFixed(2)} km';
+
+    // Calculate estimated time (assuming average speed 40 km/h)
+    final hours = _distance / 40;
+    if (hours < 1) {
+      final minutes = (hours * 60).round();
+      _estimatedTime = '$minutes min';
+      _durationText = '$minutes min';
+    } else {
+      final wholeHours = hours.floor();
+      final minutes = ((hours - wholeHours) * 60).round();
+      _estimatedTime = '${wholeHours}h ${minutes}min';
+      _durationText = '${wholeHours}h ${minutes}min';
+    }
+
+    // Create fallback polyline (dashed straight line)
+    _createFallbackPolyline();
+
+    setState(() {
+      _usingFallbackRoute = true;
+      _isLoading = false;
+    });
   }
 
   double _calculateDistance(
@@ -150,20 +203,37 @@ class _RouteViewerWidgetState extends State<RouteViewerWidget> {
     );
   }
 
-  void _createPolyline() {
+  void _createRealPolyline(List<LatLng> points) {
+    _polylines.clear();
+    _polylines.add(
+      Polyline(
+        polylineId: const PolylineId('real_route'),
+        points: points,
+        color: Theme.of(context).colorScheme.primary,
+        width: 5,
+        startCap: Cap.roundCap,
+        endCap: Cap.roundCap,
+        jointType: JointType.round,
+      ),
+    );
+  }
+
+  void _createFallbackPolyline() {
     if (_currentPosition == null) return;
 
     _polylines.clear();
     _polylines.add(
       Polyline(
-        polylineId: const PolylineId('route'),
+        polylineId: const PolylineId('fallback_route'),
         points: [
           LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
           LatLng(widget.destinationLat, widget.destinationLng),
         ],
-        color: Theme.of(context).colorScheme.primary,
+        color: Colors.red,
         width: 4,
         patterns: [PatternItem.dash(20), PatternItem.gap(10)],
+        startCap: Cap.roundCap,
+        endCap: Cap.roundCap,
       ),
     );
   }
@@ -201,7 +271,6 @@ class _RouteViewerWidgetState extends State<RouteViewerWidget> {
   }
 
   Future<void> _refreshLocation() async {
-    setState(() => _isLoading = true);
     await _initializeRoute();
   }
 
@@ -223,8 +292,15 @@ class _RouteViewerWidgetState extends State<RouteViewerWidget> {
       ),
       body: _isLoading
           ? Center(
-              child: CircularProgressIndicator(
-                color: theme.colorScheme.primary,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(
+                    color: theme.colorScheme.primary,
+                  ),
+                  const SizedBox(height: 16),
+                  const Text('Loading route...'),
+                ],
               ),
             )
           : _errorMessage.isNotEmpty
@@ -246,9 +322,41 @@ class _RouteViewerWidgetState extends State<RouteViewerWidget> {
                       mapType: MapType.normal,
                     ),
 
+                    // Warning banner if using fallback route
+                    if (_usingFallbackRoute)
+                      Positioned(
+                        top: 16,
+                        left: 16,
+                        right: 16,
+                        child: Card(
+                          color: Colors.orange.shade100,
+                          child: Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.warning_amber_rounded,
+                                  color: Colors.orange.shade900,
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Showing direct route. Road directions unavailable.',
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: Colors.orange.shade900,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+
                     // Distance info card
                     Positioned(
-                      top: 16,
+                      top: _usingFallbackRoute ? 80 : 16,
                       left: 16,
                       right: 16,
                       child: Card(
@@ -285,7 +393,7 @@ class _RouteViewerWidgetState extends State<RouteViewerWidget> {
                                     theme,
                                     Icons.straighten,
                                     'Distance',
-                                    '${_distance.toStringAsFixed(2)} km',
+                                    _distanceText,
                                   ),
                                   Container(
                                     width: 1,
@@ -296,7 +404,7 @@ class _RouteViewerWidgetState extends State<RouteViewerWidget> {
                                     theme,
                                     Icons.access_time,
                                     'Est. Time',
-                                    _estimatedTime,
+                                    _durationText,
                                   ),
                                 ],
                               ),
@@ -306,19 +414,33 @@ class _RouteViewerWidgetState extends State<RouteViewerWidget> {
                       ),
                     ),
 
+                    // My location button
+                    Positioned(
+                      bottom: 24,
+                      right: 16,
+                      child: FloatingActionButton(
+                        onPressed: _refreshLocation,
+                        tooltip: 'My Location',
+                        child: Icon(
+                          Icons.my_location,
+                          color: theme.colorScheme.onPrimary,
+                        ),
+                      ),
+                    ),
+
                     // Start Navigation button
                     Positioned(
                       bottom: 24,
                       left: 16,
-                      right: 16,
+                      right: 80,
                       child: ElevatedButton.icon(
                         onPressed: () {
                           HapticFeedback.lightImpact();
                           Navigator.pop(context);
-                          // In real app, this would open Google Maps navigation
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
-                              content: const Text('Opening navigation...'),
+                              content: const Text(
+                                  'Opening Google Maps for navigation...'),
                               action: SnackBarAction(
                                 label: 'OK',
                                 onPressed: () {},

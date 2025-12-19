@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
@@ -7,10 +6,14 @@ class DirectionsService {
   static const String _baseUrl =
       'https://maps.googleapis.com/maps/api/directions/json';
 
-  // API Key yang sama dengan yang digunakan di AndroidManifest.xml
   static const String _apiKey = 'AIzaSyDelfYcbxnCJKF5X56clemyFIZbAQKI4Oo';
 
-  final Dio _dio = Dio();
+  final Dio _dio = Dio(
+    BaseOptions(
+      connectTimeout: const Duration(seconds: 15),
+      receiveTimeout: const Duration(seconds: 15),
+    ),
+  );
 
   /// Mendapatkan rute dari origin ke destination
   /// Returns: Map dengan 'distance' (dalam km), 'duration' (dalam detik), dan 'polylinePoints'
@@ -18,6 +21,9 @@ class DirectionsService {
     required LatLng origin,
     required LatLng destination,
   }) async {
+    print(
+        '🗺️ Getting directions from ${origin.latitude},${origin.longitude} to ${destination.latitude},${destination.longitude}');
+
     try {
       final response = await _dio.get(
         _baseUrl,
@@ -26,11 +32,15 @@ class DirectionsService {
           'destination': '${destination.latitude},${destination.longitude}',
           'mode': 'driving', // Bisa diubah ke: walking, bicycling, transit
           'key': _apiKey,
+          'language': 'id', // Bahasa Indonesia
         },
       );
 
+      print('📡 Directions API Status Code: ${response.statusCode}');
+
       if (response.statusCode == 200) {
         final data = response.data;
+        print('📡 Directions API Status: ${data['status']}');
 
         // Check status dari API
         if (data['status'] == 'OK') {
@@ -42,10 +52,16 @@ class DirectionsService {
           final durationInSeconds = leg['duration']['value'] as int;
           final distanceInKm = distanceInMeters / 1000.0;
 
+          print('Route found:');
+          print('   Distance: ${leg['distance']['text']}');
+          print('   Duration: ${leg['duration']['text']}');
+
           // Decode polyline untuk menampilkan rute di map
-          final polylinePoints = _decodePolyline(
-            route['overview_polyline']['points'] as String,
-          );
+          final encodedPolyline =
+              route['overview_polyline']['points'] as String;
+          final polylinePoints = _decodePolyline(encodedPolyline);
+
+          print('   Polyline points: ${polylinePoints.length}');
 
           return {
             'distance': distanceInKm,
@@ -60,6 +76,16 @@ class DirectionsService {
           if (data['error_message'] != null) {
             print('Error message: ${data['error_message']}');
           }
+
+          // Common error statuses:
+          // - NOT_FOUND: route tidak ditemukan
+          // - ZERO_RESULTS: tidak ada rute tersedia
+          // - MAX_WAYPOINTS_EXCEEDED: terlalu banyak waypoints
+          // - INVALID_REQUEST: parameter tidak valid
+          // - OVER_QUERY_LIMIT: quota exceeded
+          // - REQUEST_DENIED: API key invalid atau tidak authorized
+          // - UNKNOWN_ERROR: server error
+
           return null;
         }
       } else {
@@ -68,12 +94,25 @@ class DirectionsService {
       }
     } on DioException catch (e) {
       print('Dio Error: ${e.message}');
+      print('Dio Error Type: ${e.type}');
+
       if (e.response != null) {
+        print('Response status: ${e.response?.statusCode}');
         print('Response data: ${e.response?.data}');
       }
+
+      // Handle specific error types
+      if (e.type == DioExceptionType.connectionTimeout) {
+        print('Connection timeout');
+      } else if (e.type == DioExceptionType.receiveTimeout) {
+        print('Receive timeout');
+      } else if (e.type == DioExceptionType.connectionError) {
+        print('No internet connection');
+      }
+
       return null;
     } catch (e) {
-      print('Error getting directions: $e');
+      print('Unexpected error getting directions: $e');
       return null;
     }
   }
@@ -120,5 +159,28 @@ class DirectionsService {
     }
 
     return points;
+  }
+
+  /// Test koneksi ke Directions API
+  Future<bool> testConnection() async {
+    print('Testing Directions API connection...');
+
+    try {
+      final testResult = await getDirections(
+        origin: const LatLng(-7.4297, 109.2401), // Purwokerto
+        destination: const LatLng(-7.4397, 109.2501), // Nearby
+      );
+
+      if (testResult != null) {
+        print('Directions API test successful!');
+        return true;
+      } else {
+        print('Directions API test failed - returned null');
+        return false;
+      }
+    } catch (e) {
+      print('Directions API test failed with error: $e');
+      return false;
+    }
   }
 }
