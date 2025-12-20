@@ -38,9 +38,8 @@ class _MapViewScreenState extends State<MapViewScreen> {
   String _errorMessage = '';
   Map<String, dynamic>? _focusDestination;
 
-// FITUR BARU: Variabel untuk 'Tap to Add'
-  LatLng? _tappedLocation; // Lokasi yang diklik user
-  Marker? _temporaryMarker; // Marker sementara (biasanya warna beda)
+  LatLng? _tappedLocation;
+  Marker? _temporaryMarker;
 
   // Flag to track if widget is still mounted
   bool _isDisposed = false;

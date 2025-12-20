@@ -1,9 +1,10 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
+import 'package:intl/intl.dart';
 
 import '../../../core/app_export.dart';
-import '../../../widgets/custom_icon_widget.dart'; // Pastikan import ini ada
+import '../../../widgets/custom_icon_widget.dart';
 
 /// Destination card widget untuk menampilkan informasi destination
 class DestinationCardWidget extends StatelessWidget {
@@ -12,7 +13,7 @@ class DestinationCardWidget extends StatelessWidget {
   final VoidCallback onEdit;
   final VoidCallback onDelete;
   final VoidCallback onViewOnMap;
-  final VoidCallback onShare; // FITUR BARU: Callback untuk share
+  final VoidCallback onShare;
 
   const DestinationCardWidget({
     super.key,
@@ -21,12 +22,16 @@ class DestinationCardWidget extends StatelessWidget {
     required this.onEdit,
     required this.onDelete,
     required this.onViewOnMap,
-    required this.onShare, // FITUR BARU: Wajib diisi
+    required this.onShare,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+
+    // Parsing tanggal dari database
+    final DateTime createdAt = DateTime.parse(destination['created_at']);
+    final String formattedDate = DateFormat('dd MMM yyyy').format(createdAt);
 
     return Slidable(
       key: ValueKey(destination['id']),
@@ -60,7 +65,8 @@ class DestinationCardWidget extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildImageSection(theme),
+              // Pass formattedDate ke fungsi build image
+              _buildImageSection(theme, formattedDate),
               _buildContentSection(theme),
             ],
           ),
@@ -69,7 +75,8 @@ class DestinationCardWidget extends StatelessWidget {
     );
   }
 
-  Widget _buildImageSection(ThemeData theme) {
+  // Menambahkan parameter formattedDate
+  Widget _buildImageSection(ThemeData theme, String formattedDate) {
     final photoPath = destination['photo_path'] as String?;
 
     return ClipRRect(
@@ -100,6 +107,7 @@ class DestinationCardWidget extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  // --- Opening Hours ---
                   CustomIconWidget(
                     iconName: 'access_time',
                     color: theme.colorScheme.primary,
@@ -108,6 +116,27 @@ class DestinationCardWidget extends StatelessWidget {
                   const SizedBox(width: 4),
                   Text(
                     destination['opening_hours'] as String? ?? 'N/A',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: Colors.white,
+                    ),
+                  ),
+
+                  // --- Divider & Date Picker Result ---
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 8),
+                    child: Text(
+                      '|',
+                      style: TextStyle(color: Colors.white70),
+                    ),
+                  ),
+                  CustomIconWidget(
+                    iconName: 'calendar_today',
+                    color: theme.colorScheme.primary,
+                    size: 16,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    formattedDate,
                     style: theme.textTheme.labelSmall?.copyWith(
                       color: Colors.white,
                     ),
@@ -235,7 +264,6 @@ class DestinationCardWidget extends StatelessWidget {
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
-              // FITUR BARU: Menu Share
               ListTile(
                 leading: CustomIconWidget(
                   iconName: 'share',

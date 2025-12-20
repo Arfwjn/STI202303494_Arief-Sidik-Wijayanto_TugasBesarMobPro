@@ -182,7 +182,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                                   itemBuilder: (context, index) {
                                     final destination =
                                         _filteredDestinations[index];
-                                    // PERBAIKAN: Menambahkan onShare
                                     return DestinationCardWidget(
                                       destination: destination,
                                       onTap: () => _navigateToDestinationDetail(

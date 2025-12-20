@@ -5,6 +5,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:sizer/sizer.dart';
+import 'package:intl/intl.dart';
 
 import '../../core/app_export.dart';
 import '../../services/database_helper.dart';
@@ -30,6 +31,9 @@ class _AddDestinationScreenState extends State<AddDestinationScreen> {
   final _latitudeController = TextEditingController();
   final _longitudeController = TextEditingController();
 
+  DateTime _selectedDate = DateTime.now();
+  final _dateController = TextEditingController();
+
   TimeOfDay? _openingTime;
   TimeOfDay? _closingTime;
   XFile? _selectedImage;
@@ -41,27 +45,10 @@ class _AddDestinationScreenState extends State<AddDestinationScreen> {
   bool _hasValidLocation = false;
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final args =
-        ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
-
-    if (args != null) {
-      if (args.containsKey('initial_lat') && args.containsKey('initial_lng')) {
-        if (_latitudeController.text.isEmpty) {
-          _latitudeController.text = args['initial_lat'].toString();
-        }
-
-        if (_longitudeController.text.isEmpty) {
-          _longitudeController.text = args['initial_lng'].toString();
-        }
-      }
-    }
-  }
-
-  @override
   void initState() {
     super.initState();
+    _dateController.text = DateFormat('dd MMM yyyy').format(_selectedDate);
+
     // Check if coordinates were passed from map view
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final args =
@@ -82,6 +69,33 @@ class _AddDestinationScreenState extends State<AddDestinationScreen> {
 
     _latitudeController.addListener(_onLocationChanged);
     _longitudeController.addListener(_onLocationChanged);
+  }
+
+  Future<void> _handleDateSelection() async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime(2000),
+      lastDate: DateTime.now(),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme.light(
+              primary: Theme.of(context).colorScheme.primary,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null && picked != _selectedDate) {
+      setState(() {
+        _selectedDate = picked;
+        _dateController.text = DateFormat('dd MMM yyyy').format(picked);
+      });
+      HapticFeedback.lightImpact();
+    }
   }
 
   @override
@@ -161,6 +175,15 @@ class _AddDestinationScreenState extends State<AddDestinationScreen> {
     setState(() => _isSaving = true);
 
     try {
+      final now = DateTime.now();
+      final finalDate = DateTime(
+        _selectedDate.year,
+        _selectedDate.month,
+        _selectedDate.day,
+        now.hour,
+        now.minute,
+      );
+
       final destination = {
         'name': _nameController.text.trim(),
         'description': _descriptionController.text.trim(),
@@ -169,7 +192,7 @@ class _AddDestinationScreenState extends State<AddDestinationScreen> {
         'opening_hours':
             '${_openingTime!.format(context)} - ${_closingTime!.format(context)}',
         'photo_path': _selectedImage?.path ?? '',
-        'created_at': DateTime.now().toIso8601String(),
+        'created_at': finalDate.toIso8601String(),
       };
 
       await DatabaseHelper.instance.insertDestination(destination);
@@ -347,14 +370,47 @@ class _AddDestinationScreenState extends State<AddDestinationScreen> {
                 SizedBox(height: 2.h),
                 _buildDescriptionField(theme),
                 SizedBox(height: 3.h),
-                _buildSectionTitle(theme, 'Opening Hours'),
+                _buildSectionTitle(theme, 'Date & Time Settings'),
                 SizedBox(height: 2.h),
+                Row(
+                  children: [
+                    Expanded(
+                      child: InkWell(
+                        onTap: _handleDateSelection,
+                        borderRadius: BorderRadius.circular(12),
+                        child: InputDecorator(
+                          decoration: InputDecoration(
+                            labelText: 'Date Added',
+                            prefixIcon: CustomIconWidget(
+                              iconName: 'calendar_today',
+                              color: theme.colorScheme.primary,
+                              size: 20,
+                            ),
+                            border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12)),
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 16),
+                          ),
+                          child: Text(
+                            _dateController.text,
+                            style: theme.textTheme.bodyLarge,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+
+                SizedBox(height: 2.h),
+
+                // Existing Opening Hours Widget
                 OpeningHoursSectionWidget(
                   openingTime: _openingTime,
                   closingTime: _closingTime,
                   onOpeningTimeSelected: _handleOpeningTimeSelection,
                   onClosingTimeSelected: _handleClosingTimeSelection,
                 ),
+
                 SizedBox(height: 3.h),
                 _buildSectionTitle(theme, 'Photo'),
                 SizedBox(height: 2.h),
@@ -373,14 +429,12 @@ class _AddDestinationScreenState extends State<AddDestinationScreen> {
                   onPickFromMap: _handlePickFromMap,
                 ),
 
-                // Mini Map Preview
                 if (_hasValidLocation) ...[
                   SizedBox(height: 3.h),
                   _buildSectionTitle(theme, 'Location Preview'),
                   SizedBox(height: 2.h),
                   _buildMiniMap(theme),
                 ],
-
                 SizedBox(height: 4.h),
               ],
             ),
