@@ -38,6 +38,9 @@ class _MapViewScreenState extends State<MapViewScreen> {
   String _errorMessage = '';
   Map<String, dynamic>? _focusDestination;
 
+  // Flag to track if widget is still mounted
+  bool _isDisposed = false;
+
   // Default location (Purwokerto, Indonesia)
   static const LatLng _defaultLocation = LatLng(-7.4297, 109.2401);
 
@@ -73,8 +76,17 @@ class _MapViewScreenState extends State<MapViewScreen> {
 
   @override
   void dispose() {
+    _isDisposed = true;
     _mapController?.dispose();
+    _mapController = null;
     super.dispose();
+  }
+
+  // Safe method to update state only if widget is still mounted
+  void _safeSetState(VoidCallback fn) {
+    if (!_isDisposed && mounted) {
+      setState(fn);
+    }
   }
 
   Future<void> _initializeMap() async {
@@ -107,12 +119,10 @@ class _MapViewScreenState extends State<MapViewScreen> {
       await _createMarkers();
 
       // Mark as ready
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-        debugPrint('MapViewScreen: Initialization complete');
-      }
+      _safeSetState(() {
+        _isLoading = false;
+      });
+      debugPrint('MapViewScreen: Initialization complete');
     } catch (e, stackTrace) {
       debugPrint('MapViewScreen: Initialization error: $e');
       debugPrint('MapViewScreen: Stack trace: $stackTrace');
@@ -125,13 +135,11 @@ class _MapViewScreenState extends State<MapViewScreen> {
       final connectivityResult = await Connectivity().checkConnectivity();
       debugPrint('MapViewScreen: Connectivity result: $connectivityResult');
 
-      // Check if connected to WiFi or mobile data
       return connectivityResult.contains(ConnectivityResult.wifi) ||
           connectivityResult.contains(ConnectivityResult.mobile) ||
           connectivityResult.contains(ConnectivityResult.ethernet);
     } catch (e) {
       debugPrint('MapViewScreen: Connectivity check error: $e');
-      // Assume connected if check fails
       return true;
     }
   }
@@ -139,32 +147,25 @@ class _MapViewScreenState extends State<MapViewScreen> {
   Future<void> _loadDestinations() async {
     try {
       final destinations = await DatabaseHelper.instance.getAllDestinations();
-      if (mounted) {
-        setState(() {
-          _destinations = destinations;
-        });
-      }
+      _safeSetState(() {
+        _destinations = destinations;
+      });
     } catch (e) {
       debugPrint('MapViewScreen: Error loading destinations: $e');
-      // Don't fail the whole map initialization if destinations fail
-      if (mounted) {
-        setState(() {
-          _destinations = [];
-        });
-      }
+      _safeSetState(() {
+        _destinations = [];
+      });
     }
   }
 
   Future<void> _getCurrentLocationAsync() async {
     try {
-      // Check if location services are enabled
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
         debugPrint('MapViewScreen: Location services disabled');
         return;
       }
 
-      // Check location permission
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
@@ -179,7 +180,6 @@ class _MapViewScreenState extends State<MapViewScreen> {
         return;
       }
 
-      // Get current position with timeout
       _currentPosition = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.high,
@@ -198,7 +198,6 @@ class _MapViewScreenState extends State<MapViewScreen> {
           'MapViewScreen: Got location: ${_currentPosition?.latitude}, ${_currentPosition?.longitude}');
     } catch (e) {
       debugPrint('MapViewScreen: Error getting location: $e');
-      // Continue without current location
     }
   }
 
@@ -228,25 +227,26 @@ class _MapViewScreenState extends State<MapViewScreen> {
       }
     }
 
-    if (mounted) {
-      setState(() {});
-    }
+    _safeSetState(() {});
 
     debugPrint('MapViewScreen: Created ${_markers.length} markers');
   }
 
   void _onMarkerTapped(Map<String, dynamic> destination) {
     HapticFeedback.lightImpact();
-    setState(() {
+    _safeSetState(() {
       _selectedLocation = LatLng(
         destination["latitude"] as double,
         destination["longitude"] as double,
       );
     });
 
-    _mapController?.animateCamera(
-      CameraUpdate.newLatLngZoom(_selectedLocation!, 15),
-    );
+    // Only animate if controller is available and not disposed
+    if (_mapController != null && !_isDisposed && _mapCreated) {
+      _mapController?.animateCamera(
+        CameraUpdate.newLatLngZoom(_selectedLocation!, 15),
+      );
+    }
   }
 
   void _navigateToDetail(Map<String, dynamic> destination) {
@@ -264,7 +264,7 @@ class _MapViewScreenState extends State<MapViewScreen> {
       _controller.complete(controller);
     }
 
-    setState(() {
+    _safeSetState(() {
       _mapController = controller;
       _mapCreated = true;
       _errorMessage = '';
@@ -274,12 +274,10 @@ class _MapViewScreenState extends State<MapViewScreen> {
 
     // Fit markers after a short delay to ensure map is ready
     Future.delayed(const Duration(milliseconds: 500), () {
-      if (mounted && _mapCreated) {
+      if (!_isDisposed && _mapCreated) {
         if (_focusDestination != null) {
-          // Focus on specific destination
           _focusOnDestination(_focusDestination!);
         } else {
-          // Fit all markers
           _fitAllMarkers();
         }
       }
@@ -287,7 +285,7 @@ class _MapViewScreenState extends State<MapViewScreen> {
   }
 
   void _focusOnDestination(Map<String, dynamic> destination) {
-    if (_mapController == null || !_mapCreated) {
+    if (_mapController == null || !_mapCreated || _isDisposed) {
       debugPrint(
           'MapViewScreen: Cannot focus on destination - controller not ready');
       return;
@@ -306,7 +304,7 @@ class _MapViewScreenState extends State<MapViewScreen> {
         CameraUpdate.newLatLngZoom(location, 15),
       );
 
-      setState(() {
+      _safeSetState(() {
         _selectedLocation = location;
       });
     } catch (e) {
@@ -315,14 +313,13 @@ class _MapViewScreenState extends State<MapViewScreen> {
   }
 
   void _fitAllMarkers() {
-    if (_mapController == null || !_mapCreated) {
+    if (_mapController == null || !_mapCreated || _isDisposed) {
       debugPrint('MapViewScreen: Cannot fit markers - controller not ready');
       return;
     }
 
     try {
       if (_markers.isEmpty) {
-        // No markers, center on current position or default
         final targetLocation = _currentPosition != null
             ? LatLng(_currentPosition!.latitude, _currentPosition!.longitude)
             : _defaultLocation;
@@ -366,7 +363,7 @@ class _MapViewScreenState extends State<MapViewScreen> {
 
   void _toggleMapType() {
     HapticFeedback.lightImpact();
-    setState(() {
+    _safeSetState(() {
       _currentMapType = _currentMapType == MapType.normal
           ? MapType.satellite
           : MapType.normal;
@@ -376,7 +373,10 @@ class _MapViewScreenState extends State<MapViewScreen> {
   void _centerOnUserLocation() async {
     HapticFeedback.lightImpact();
 
-    if (_currentPosition != null) {
+    if (_currentPosition != null &&
+        !_isDisposed &&
+        _mapCreated &&
+        _mapController != null) {
       _mapController?.animateCamera(
         CameraUpdate.newLatLngZoom(
           LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
@@ -385,11 +385,14 @@ class _MapViewScreenState extends State<MapViewScreen> {
       );
     } else {
       // Try to get location again
-      setState(() => _isLoading = true);
+      _safeSetState(() => _isLoading = true);
       await _getCurrentLocationAsync();
-      setState(() => _isLoading = false);
+      _safeSetState(() => _isLoading = false);
 
-      if (_currentPosition != null && mounted) {
+      if (_currentPosition != null &&
+          !_isDisposed &&
+          _mapCreated &&
+          _mapController != null) {
         _mapController?.animateCamera(
           CameraUpdate.newLatLngZoom(
             LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
@@ -428,32 +431,30 @@ class _MapViewScreenState extends State<MapViewScreen> {
 
   void _toggleSearchOverlay() {
     HapticFeedback.lightImpact();
-    setState(() => _showSearchOverlay = !_showSearchOverlay);
+    _safeSetState(() => _showSearchOverlay = !_showSearchOverlay);
   }
 
   void _onSearchQueryChanged(String query) {
-    setState(() => _searchQuery = query);
+    _safeSetState(() => _searchQuery = query);
   }
 
   void _onDestinationSelected(Map<String, dynamic> destination) {
     _onMarkerTapped(destination);
-    setState(() {
+    _safeSetState(() {
       _showSearchOverlay = false;
     });
   }
 
   void _showError(String message) {
     debugPrint('MapViewScreen: Error: $message');
-    if (mounted) {
-      setState(() {
-        _isLoading = false;
-        _errorMessage = message;
-      });
-    }
+    _safeSetState(() {
+      _isLoading = false;
+      _errorMessage = message;
+    });
   }
 
   void _retry() {
-    setState(() {
+    _safeSetState(() {
       _isLoading = true;
       _errorMessage = '';
       _mapCreated = false;
