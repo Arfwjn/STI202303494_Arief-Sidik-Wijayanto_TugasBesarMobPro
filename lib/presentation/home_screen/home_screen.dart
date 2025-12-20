@@ -70,10 +70,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       }
     });
     HapticFeedback.mediumImpact();
-
-    // Debug print
-    print('🔥 FAB Expanded: $_isFabExpanded');
-    print('🔥 Animation Status: ${_fabAnimationController.status}');
   }
 
   void _closeFab() {
@@ -219,9 +215,16 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   ),
                 ),
               ),
+
+            // PERBAIKAN: Memindahkan FAB ke dalam Stack body agar hit-test (klik) berfungsi dengan benar
+            Positioned(
+              bottom: 16,
+              right: 16,
+              child: _buildSpeedDialFab(theme),
+            ),
           ],
         ),
-        floatingActionButton: _buildSpeedDialFab(theme),
+        // floatingActionButton: _buildSpeedDialFab(theme), // DIHAPUS: Dipindah ke body
         bottomNavigationBar: CustomBottomBar(
           currentIndex: 0,
           onTap: (index) {
@@ -235,21 +238,88 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
+  // PERBAIKAN: Mengubah struktur dari Stack menjadi Column dan menggunakan AnimatedBuilder
   Widget _buildSpeedDialFab(ThemeData theme) {
-    return Stack(
-      clipBehavior: Clip.none,
-      alignment: Alignment.bottomRight,
-      children: [
-        // Main FAB
-        IgnorePointer(
-          ignoring: _isFabExpanded,
-          child: AnimatedBuilder(
-            animation: _fabAnimationController,
-            builder: (context, child) {
-              return Transform.scale(
+    return AnimatedBuilder(
+        animation: _fabAnimationController,
+        builder: (context, child) {
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              // Speed dial buttons
+              // Ditampilkan jika controller sedang animasi atau FAB expanded
+              // Urutan dibalik karena Column dirender dari atas ke bawah
+              if (!_fabAnimationController.isDismissed) ...[
+                _buildSpeedDialButton(
+                  theme: theme,
+                  icon: 'share',
+                  label: 'Share All',
+                  backgroundColor: Colors.teal,
+                  onTap: () async {
+                    print('🎯 Share All clicked!');
+                    _closeFab();
+                    await Future.delayed(const Duration(milliseconds: 100));
+                    if (mounted) {
+                      _shareAllDestinations();
+                    }
+                  },
+                ),
+                const SizedBox(height: 16),
+                _buildSpeedDialButton(
+                  theme: theme,
+                  icon: 'explore',
+                  label: 'Random Pick',
+                  backgroundColor: Colors.orange,
+                  onTap: () async {
+                    print('🎯 Random Pick clicked!');
+                    _closeFab();
+                    await Future.delayed(const Duration(milliseconds: 100));
+                    if (mounted) {
+                      _pickRandomDestination();
+                    }
+                  },
+                ),
+                const SizedBox(height: 16),
+                _buildSpeedDialButton(
+                  theme: theme,
+                  icon: 'insights',
+                  label: 'Statistics',
+                  backgroundColor: Colors.deepPurple,
+                  onTap: () async {
+                    print('🎯 Statistics clicked!');
+                    _closeFab();
+                    await Future.delayed(const Duration(milliseconds: 100));
+                    if (mounted) {
+                      _showStatistics();
+                    }
+                  },
+                ),
+                const SizedBox(height: 16),
+                _buildSpeedDialButton(
+                  theme: theme,
+                  icon: 'add_location',
+                  label: 'Add Destination',
+                  backgroundColor: theme.colorScheme.primary,
+                  onTap: () async {
+                    print('🎯 Add Destination clicked!');
+                    _closeFab();
+                    await Future.delayed(const Duration(milliseconds: 100));
+                    if (mounted) {
+                      _navigateToAddDestination();
+                    }
+                  },
+                ),
+                const SizedBox(height: 24),
+              ],
+
+              // Main FAB
+              // PERBAIKAN: Menghapus IgnorePointer yang membuat tombol tidak bisa diklik saat expanded
+              Transform.scale(
                 scale: _fabScaleAnimation.value,
                 child: FloatingActionButton(
-                  onPressed: _isFabExpanded ? null : _toggleFab,
+                  onPressed:
+                      _toggleFab, // Tombol toggle harus selalu bisa diklik
                   tooltip: _isFabExpanded ? 'Close' : 'Quick Actions',
                   backgroundColor: _isFabExpanded
                       ? theme.colorScheme.error
@@ -270,159 +340,90 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     ),
                   ),
                 ),
-              );
-            },
-          ),
-        ),
-
-        // Speed dial buttons - harus di atas main FAB
-        if (_isFabExpanded) ...[
-          _buildSpeedDialButton(
-            theme: theme,
-            icon: 'add_location',
-            label: 'Add Destination',
-            backgroundColor: theme.colorScheme.primary,
-            onTap: () async {
-              print('🎯 Add Destination clicked!');
-              _closeFab();
-              await Future.delayed(const Duration(milliseconds: 100));
-              if (mounted) {
-                _navigateToAddDestination();
-              }
-            },
-            offset: 80,
-          ),
-          _buildSpeedDialButton(
-            theme: theme,
-            icon: 'insights',
-            label: 'Statistics',
-            backgroundColor: Colors.deepPurple,
-            onTap: () async {
-              print('🎯 Statistics clicked!');
-              _closeFab();
-              await Future.delayed(const Duration(milliseconds: 100));
-              if (mounted) {
-                _showStatistics();
-              }
-            },
-            offset: 150,
-          ),
-          _buildSpeedDialButton(
-            theme: theme,
-            icon: 'explore',
-            label: 'Random Pick',
-            backgroundColor: Colors.orange,
-            onTap: () async {
-              print('🎯 Random Pick clicked!');
-              _closeFab();
-              await Future.delayed(const Duration(milliseconds: 100));
-              if (mounted) {
-                _pickRandomDestination();
-              }
-            },
-            offset: 220,
-          ),
-          _buildSpeedDialButton(
-            theme: theme,
-            icon: 'share',
-            label: 'Share All',
-            backgroundColor: Colors.teal,
-            onTap: () async {
-              print('🎯 Share All clicked!');
-              _closeFab();
-              await Future.delayed(const Duration(milliseconds: 100));
-              if (mounted) {
-                _shareAllDestinations();
-              }
-            },
-            offset: 290,
-          ),
-        ],
-      ],
-    );
+              ),
+            ],
+          );
+        });
   }
 
+  // PERBAIKAN: Menghapus Positioned karena sekarang berada di dalam Column
   Widget _buildSpeedDialButton({
     required ThemeData theme,
     required String icon,
     required String label,
     required Color backgroundColor,
     required VoidCallback onTap,
-    required double offset,
+    // offset parameter dihapus karena tidak dibutuhkan lagi
   }) {
-    return Positioned(
-      bottom: offset,
-      right: 0,
-      child: TweenAnimationBuilder<double>(
-        duration: const Duration(milliseconds: 300),
-        tween: Tween(begin: 0.0, end: _isFabExpanded ? 1.0 : 0.0),
-        curve: Curves.easeOutBack,
-        builder: (context, value, child) {
-          // Clamp value to prevent negative opacity
-          final clampedValue = value.clamp(0.0, 1.0);
-          return Transform.scale(
-            scale: clampedValue,
-            child: Opacity(
-              opacity: clampedValue,
+    return TweenAnimationBuilder<double>(
+      duration: const Duration(milliseconds: 300),
+      tween: Tween(begin: 0.0, end: _isFabExpanded ? 1.0 : 0.0),
+      curve: Curves.easeOutBack,
+      builder: (context, value, child) {
+        // Clamp value to prevent negative opacity
+        final clampedValue = value.clamp(0.0, 1.0);
+        return Transform.scale(
+          scale: clampedValue,
+          child: Opacity(
+            opacity: clampedValue,
+            // IgnorePointer tetap ada untuk mencegah klik saat animasi closing
+            child: IgnorePointer(
+              ignoring: !_isFabExpanded,
               child: child,
             ),
-          );
-        },
-        child: IgnorePointer(
-          ignoring: !_isFabExpanded,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Label
-              GestureDetector(
-                onTap: () {
-                  print('🔥 Label tapped: $label');
-                  HapticFeedback.lightImpact();
-                  onTap();
-                },
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.surface,
-                    borderRadius: BorderRadius.circular(8),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.2),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Text(
-                    label,
-                    style: theme.textTheme.labelMedium?.copyWith(
-                      color: theme.colorScheme.onSurface,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              // Button
-              FloatingActionButton(
-                mini: true,
-                onPressed: () {
-                  print('🔥 FAB tapped: $label');
-                  HapticFeedback.mediumImpact();
-                  onTap();
-                },
-                backgroundColor: backgroundColor,
-                heroTag: 'fab_$label',
-                child: CustomIconWidget(
-                  iconName: icon,
-                  color: theme.colorScheme.onPrimary,
-                  size: 20,
-                ),
-              ),
-            ],
           ),
-        ),
+        );
+      },
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Label
+          GestureDetector(
+            onTap: () {
+              print('🔥 Label tapped: $label');
+              HapticFeedback.lightImpact();
+              onTap();
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surface,
+                borderRadius: BorderRadius.circular(8),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.2),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Text(
+                label,
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: theme.colorScheme.onSurface,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          // Button
+          FloatingActionButton(
+            mini: true,
+            onPressed: () {
+              print('🔥 FAB tapped: $label');
+              HapticFeedback.mediumImpact();
+              onTap();
+            },
+            backgroundColor: backgroundColor,
+            heroTag: 'fab_$label',
+            child: CustomIconWidget(
+              iconName: icon,
+              color: theme.colorScheme.onPrimary,
+              size: 20,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -484,7 +485,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  /// Menangani refresh data destinasi
   Future<void> _handleRefresh() async {
     HapticFeedback.mediumImpact();
     setState(() {
@@ -512,7 +512,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     }
   }
 
-  /// Menampilkan opsi filter dalam modal bottom sheet
   void _showFilterOptions() {
     _closeFab();
     showModalBottomSheet(
@@ -626,7 +625,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  /// Show statistics dialog
   void _showStatistics() {
     print('📊 _showStatistics called');
     final theme = Theme.of(context);
@@ -647,7 +645,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
     print('📊 Calculating statistics...');
 
-    // Calculate statistics
     final oldest = _destinations.reduce((a, b) {
       final aDate = DateTime.parse(a['created_at'] as String);
       final bDate = DateTime.parse(b['created_at'] as String);
@@ -765,7 +762,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  /// Pick random destination
   void _pickRandomDestination() {
     print('🎲 _pickRandomDestination called');
 
@@ -892,7 +888,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  /// Share all destinations as text
   void _shareAllDestinations() {
     print('📤 _shareAllDestinations called');
 
@@ -1017,12 +1012,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         });
   }
 
-  /// Show all destinations on map
   void _showAllDestinationsOnMap() {
     Navigator.pushNamed(context, '/map-view-screen');
   }
 
-  /// Navigasi ke layar tambah destinasi
   Future<void> _navigateToAddDestination() async {
     final result =
         await Navigator.pushNamed(context, '/add-destination-screen');
